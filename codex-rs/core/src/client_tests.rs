@@ -1593,10 +1593,7 @@ fn build_subagent_headers_sets_internal_memory_consolidation_label() {
         .get(X_OPENAI_SUBAGENT_HEADER)
         .and_then(|value| value.to_str().ok());
     assert_eq!(value, Some("memory_consolidation"));
-    assert_eq!(
-        headers.get("originator"),
-        Some(&http::HeaderValue::from_static("test_originator"))
-    );
+    assert_eq!(headers.get("originator"), None);
 }
 
 #[test]

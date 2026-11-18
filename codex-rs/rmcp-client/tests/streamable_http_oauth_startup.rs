@@ -55,7 +55,6 @@ const REFRESH_TOKEN: &str = "valid-refresh-token";
 const REFRESHED_ACCESS_TOKEN: &str = "refreshed-access-token";
 const RESOURCE_API_KEY: &str = "resource-api-key-secret";
 const RESOURCE_USER_AGENT: &str = "resource-only-user-agent";
-const MCP_USER_AGENT: &str = concat!("codex-mcp-client/", env!("CARGO_PKG_VERSION"));
 const CHILD_SERVER_URL_ENV: &str = "MCP_TEST_OAUTH_STARTUP_SERVER_URL";
 const CLIENT_SECRET: &str = "configured-client-secret";
 const CHILD_CONFIDENTIAL_CLIENT_ID_ENV: &str = "MCP_TEST_OAUTH_CONFIDENTIAL_CLIENT_ID";
@@ -449,14 +448,13 @@ async fn assert_expired_token_refresh(
         .await;
     Mock::given(method("POST"))
         .and(path("/oauth/token"))
-        .and(header(
-            "user-agent",
-            if same_origin_gateway {
-                RESOURCE_USER_AGENT
-            } else {
-                MCP_USER_AGENT
-            },
-        ))
+        .and(move |request: &wiremock::Request| {
+            request
+                .headers
+                .get("user-agent")
+                .and_then(|value| value.to_str().ok())
+                == same_origin_gateway.then_some(RESOURCE_USER_AGENT)
+        })
         .and(body_string_contains("grant_type=refresh_token"))
         .and(body_string_contains(format!(
             "refresh_token={REFRESH_TOKEN}"
@@ -637,7 +635,7 @@ async fn assert_expired_token_refresh(
             .headers
             .get("user-agent")
             .map(http::HeaderValue::as_bytes),
-        Some(MCP_USER_AGENT.as_bytes())
+        None
     );
 
     Ok(())

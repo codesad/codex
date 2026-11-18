@@ -27,7 +27,6 @@ use wiremock::matchers::path;
 use super::MAX_OAUTH_HTTP_RESPONSE_BODY_BYTES;
 use super::OAuthHttpClientAdapter;
 use crate::http_client_adapter::StreamableHttpRedirectMode;
-use crate::utils::MCP_USER_AGENT;
 use crate::utils::build_default_headers;
 
 async fn metadata_manager(
@@ -312,14 +311,13 @@ async fn oauth_registration_redirects_never_forward_resource_only_headers() -> R
         Mock::given(method("POST"))
             .and(path("/register"))
             .and(header("content-type", "application/json"))
-            .and(header(
-                "user-agent",
-                if has_resource_only_headers {
-                    RESOURCE_USER_AGENT
-                } else {
-                    MCP_USER_AGENT
-                },
-            ))
+            .and(move |request: &wiremock::Request| {
+                request
+                    .headers
+                    .get("user-agent")
+                    .and_then(|value| value.to_str().ok())
+                    == has_resource_only_headers.then_some(RESOURCE_USER_AGENT)
+            })
             .respond_with(ResponseTemplate::new(307).insert_header(
                 "location",
                 format!("{}/redirected-register", redirect_target.uri()),
@@ -330,7 +328,7 @@ async fn oauth_registration_redirects_never_forward_resource_only_headers() -> R
         Mock::given(method("POST"))
             .and(path("/redirected-register"))
             .and(header("content-type", "application/json"))
-            .and(header("user-agent", MCP_USER_AGENT))
+            .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
             .respond_with(ResponseTemplate::new(201))
             .expect(u64::from(!has_resource_only_headers))
             .mount(&redirect_target)

@@ -670,10 +670,10 @@ fn uses_frameless_alpha_header_for_realtime_v3() {
 }
 
 #[test]
-fn realtime_headers_include_only_non_default_originator() {
+fn realtime_headers_omit_originator() {
     let default_originator = codex_login::default_client::originator();
     for (originator, expected_header) in [
-        ("codex_work_desktop", Some("codex_work_desktop")),
+        ("codex_work_desktop", None),
         (default_originator.value.as_str(), None),
     ] {
         let headers = realtime_request_headers(

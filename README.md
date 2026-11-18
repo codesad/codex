@@ -1,3 +1,15 @@
+> **Fork behavior:** This fork omits automatic `User-Agent` and `originator` HTTP headers from model requests (including WebSocket handshakes), backend calls, model discovery, and MCP/OAuth clients. Explicitly configured headers still work. Authentication, session metadata, and MCP initialization identity are separate from these headers. Model discovery uses the server's default catalog unless you configure an originator explicitly.
+>
+> Build this fork from source with the toolchain in `codex-rs/rust-toolchain.toml`:
+>
+> ```shell
+> cd codex-rs
+> cargo build --release -p codex-cli
+> ./target/release/codex
+> ```
+>
+> The upstream installation commands below install OpenAI's build, which does not include this change.
+
 <p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
 <p align="center">
   <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />

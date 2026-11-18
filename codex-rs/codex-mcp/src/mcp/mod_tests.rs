@@ -615,7 +615,7 @@ fn codex_apps_server_config_uses_plugin_service_path() {
 }
 
 #[test]
-fn codex_apps_server_config_forwards_thread_originator_header() {
+fn codex_apps_server_config_omits_thread_originator_header() {
     let config = codex_apps_mcp_server_config(
         "https://chatgpt.com",
         /*apps_mcp_product_sku*/ None,
@@ -630,10 +630,10 @@ fn codex_apps_server_config_forwards_thread_originator_header() {
         } => {
             assert_eq!(
                 http_headers,
-                &Some(HashMap::from([
-                    ("originator".to_string(), "thread_originator".to_string()),
-                    ("X-OpenAI-Product-Sku".to_string(), "codex".to_string()),
-                ]))
+                &Some(HashMap::from([(
+                    "X-OpenAI-Product-Sku".to_string(),
+                    "codex".to_string()
+                ),]))
             );
             assert!(env_http_headers.is_none());
         }
@@ -671,7 +671,7 @@ fn codex_apps_server_config_sets_product_sku_header() {
 }
 
 #[test]
-fn codex_apps_server_config_forwards_originator_and_configured_product_sku_headers() {
+fn codex_apps_server_config_omits_originator_and_forwards_configured_product_sku() {
     let config = codex_apps_mcp_server_config(
         "https://chatgpt.com",
         Some("tpp"),
@@ -686,10 +686,10 @@ fn codex_apps_server_config_forwards_originator_and_configured_product_sku_heade
         } => {
             assert_eq!(
                 http_headers,
-                &Some(HashMap::from([
-                    ("originator".to_string(), "thread_originator".to_string()),
-                    ("X-OpenAI-Product-Sku".to_string(), "tpp".to_string()),
-                ]))
+                &Some(HashMap::from([(
+                    "X-OpenAI-Product-Sku".to_string(),
+                    "tpp".to_string()
+                ),]))
             );
             assert!(env_http_headers.is_none());
         }

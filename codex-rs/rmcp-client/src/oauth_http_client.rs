@@ -9,7 +9,6 @@ use codex_exec_server::HttpHeader;
 use codex_exec_server::HttpRedirectPolicy;
 use codex_exec_server::HttpRequestParams;
 use http::HeaderMap;
-use http::HeaderValue;
 use http::Method;
 use http::StatusCode;
 use http::header::AUTHORIZATION;
@@ -18,7 +17,6 @@ use http::header::CONTENT_LENGTH;
 use http::header::CONTENT_TYPE;
 use http::header::LOCATION;
 use http::header::TRANSFER_ENCODING;
-use http::header::USER_AGENT;
 use oauth2::HttpRequest;
 use oauth2::HttpResponse;
 use rmcp::transport::auth::AuthorizationMetadata;
@@ -32,7 +30,6 @@ use url::Url;
 
 use crate::auth_status::OAuthDiscoveryTimeout;
 use crate::http_client_adapter::StreamableHttpRedirectMode;
-use crate::utils::MCP_USER_AGENT;
 
 const MAX_OAUTH_HTTP_RESPONSE_BODY_BYTES: usize = 1024 * 1024;
 const MAX_OAUTH_HTTP_REDIRECTS: usize = 10;
@@ -237,14 +234,8 @@ impl OAuthHttpClientAdapter {
         for name in parts.headers.keys() {
             headers.remove(name);
         }
-        let has_resource_only_headers = is_resource_origin
-            && headers.iter().any(|(name, value)| {
-                name != USER_AGENT || value != HeaderValue::from_static(MCP_USER_AGENT)
-            });
+        let has_resource_only_headers = is_resource_origin && !headers.is_empty();
         headers.extend(parts.headers);
-        if !is_resource_origin {
-            headers.insert(USER_AGENT, HeaderValue::from_static(MCP_USER_AGENT));
-        }
         let redirect_policy = oauth_redirect_policy(
             self.redirect_mode,
             &headers,

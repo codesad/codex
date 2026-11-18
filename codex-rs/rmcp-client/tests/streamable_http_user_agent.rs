@@ -13,17 +13,30 @@ use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::Request;
 use wiremock::ResponseTemplate;
-use wiremock::matchers::header;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn streamable_http_requests_omit_default_user_agent() -> anyhow::Result<()> {
+    check_user_agent(None).await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn streamable_http_requests_preserve_configured_user_agent() -> anyhow::Result<()> {
-    let custom_user_agent = "custom-agent/9.9";
+    check_user_agent(Some("custom-agent/9.9")).await
+}
+
+async fn check_user_agent(custom_user_agent: Option<&'static str>) -> anyhow::Result<()> {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/mcp"))
-        .and(header("user-agent", custom_user_agent))
+        .and(move |request: &Request| {
+            request
+                .headers
+                .get("user-agent")
+                .and_then(|value| value.to_str().ok())
+                == custom_user_agent
+        })
         .respond_with(|request: &Request| {
             let body: Value = request.body_json().expect("valid JSON-RPC request");
             match body.get("method").and_then(Value::as_str) {
@@ -52,10 +65,8 @@ async fn streamable_http_requests_preserve_configured_user_agent() -> anyhow::Re
         "test-streamable-http",
         &format!("{}/mcp", server.uri()),
         Some("test-bearer".to_string()),
-        Some(HashMap::from([(
-            "user-agent".to_string(),
-            custom_user_agent.to_string(),
-        )])),
+        custom_user_agent
+            .map(|value| HashMap::from([("user-agent".to_string(), value.to_string())])),
         /*env_http_headers*/ None,
         OAuthCredentialsStoreMode::File,
         AuthKeyringBackendKind::default(),

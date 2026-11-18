@@ -19,7 +19,6 @@ use codex_login::AuthManager;
 use codex_login::CodexAuth;
 use codex_login::auth::AgentIdentityAuthPolicy;
 use codex_login::auth::BedrockApiKeyAuth;
-use codex_login::default_client::originator;
 use codex_model_provider_info::AMAZON_BEDROCK_PROVIDER_ID;
 use codex_model_provider_info::AMAZON_BEDROCK_RUNTIME_PROVIDER_ID;
 use codex_model_provider_info::ModelProviderInfo;
@@ -1717,7 +1716,8 @@ async fn includes_session_id_thread_id_and_model_headers_in_request(
     let request_authorization = request
         .header("authorization")
         .expect("authorization header");
-    let request_originator = request.header("originator").expect("originator header");
+    assert_eq!(request.header("originator"), None);
+    assert_eq!(request.header("user-agent"), None);
     let request_body = request.body_json();
     let installation_id =
         std::fs::read_to_string(test.codex_home_path().join(INSTALLATION_ID_FILENAME))
@@ -1727,7 +1727,6 @@ async fn includes_session_id_thread_id_and_model_headers_in_request(
 
     assert_eq!(request_session_id, session_id_string.as_str());
     assert_eq!(request_thread_id, thread_id_string.as_str());
-    assert_eq!(request_originator, originator().value);
     assert_eq!(request_authorization, format!("Bearer {api_key}"));
     assert_eq!(
         request.header("x-openai-fedramp").as_deref(),
@@ -2124,7 +2123,8 @@ async fn chatgpt_auth_sends_correct_request() {
     let request_authorization = request
         .header("authorization")
         .expect("authorization header");
-    let request_originator = request.header("originator").expect("originator header");
+    assert_eq!(request.header("originator"), None);
+    assert_eq!(request.header("user-agent"), None);
     let request_chatgpt_account_id = request
         .header("chatgpt-account-id")
         .expect("chatgpt-account-id header");
@@ -2147,7 +2147,6 @@ async fn chatgpt_auth_sends_correct_request() {
     assert_eq!(request_session_id, session_id_string.as_str());
     assert_eq!(request_thread_id, thread_id_string.as_str());
 
-    assert_eq!(request_originator, originator().value);
     assert_eq!(request_authorization, "Bearer Access Token");
     assert_eq!(request_chatgpt_account_id, "account_id");
     assert_codex_client_metadata(

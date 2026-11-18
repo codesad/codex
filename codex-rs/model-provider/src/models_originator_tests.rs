@@ -1,4 +1,4 @@
-//! End-to-end catalog partitioning through provider headers, manager state, and file storage.
+//! Catalog caching remains scoped locally without automatic originator headers.
 
 use super::*;
 use codex_http_client::OutboundProxyPolicy;
@@ -32,15 +32,14 @@ async fn originator_managers_share_api_key_discovery_policy() {
     let catalog = ModelsResponse {
         models: vec![model],
     };
-    for originator in ["codex_work_cca", "chatgpt_cca"] {
-        Mock::given(method("GET"))
-            .and(path("/models"))
-            .and(header("originator", originator))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&catalog))
-            .expect(1)
-            .mount(&server)
-            .await;
-    }
+    Mock::given(method("GET"))
+        .and(path("/models"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&catalog))
+        .expect(2)
+        .mount(&server)
+        .await;
     let auth = AuthManager::from_auth_for_testing(CodexAuth::from_api_key("test-key"));
     let endpoint = Arc::new(OpenAiModelsEndpoint::new(
         provider,
@@ -108,7 +107,7 @@ async fn originator_catalogs_are_isolated_and_reused_from_disk() {
         ),
     ]));
     let surface_originators = [
-        // A single account can see different models in each client.
+        // Each client retains a separate local cache.
         "codex_work_web",
         "codex_work_desktop",
         "codex_work_mobile",
@@ -117,31 +116,26 @@ async fn originator_catalogs_are_isolated_and_reused_from_disk() {
         "orbit_cca_desktop",
         "orbit_cca_mobile",
     ];
-    let mut catalogs = Vec::new();
-    for originator in ["provider-default", "codex_work_cca", "chatgpt_cca"]
-        .into_iter()
-        .chain(surface_originators)
-    {
-        let mut model = model_info_from_slug("gpt-5.5");
-        model.visibility = codex_protocol::openai_models::ModelVisibility::List;
-
-        model.description = Some(originator.to_string());
-        let catalog = ModelsResponse {
-            models: vec![model],
-        };
-        Mock::given(method("GET"))
-            .and(path("/models"))
-            .and(header("originator", originator))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .insert_header("etag", format!("\"{originator}\""))
-                    .set_body_json(&catalog),
-            )
-            .expect(1)
-            .mount(&server)
-            .await;
-        catalogs.push(catalog);
-    }
+    let mut model = model_info_from_slug("gpt-5.5");
+    model.visibility = codex_protocol::openai_models::ModelVisibility::List;
+    model.description = Some("provider-default".to_string());
+    let catalog = ModelsResponse {
+        models: vec![model],
+    };
+    // Scoped caches remain separate, but the client no longer changes the wire originator.
+    Mock::given(method("GET"))
+        .and(path("/models"))
+        .and(header("originator", "provider-default"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("etag", "\"provider-default\"")
+                .set_body_json(&catalog),
+        )
+        .expect(3 + surface_originators.len() as u64)
+        .mount(&server)
+        .await;
+    let catalogs = vec![catalog; 3 + surface_originators.len()];
     let client = HttpClientFactory::new(OutboundProxyPolicy::ReqwestDefault);
     for _ in 0..2 {
         let auth =
@@ -174,7 +168,7 @@ async fn originator_catalogs_are_isolated_and_reused_from_disk() {
                     .await,
             );
             scoped
-                .refresh_if_new_etag(format!("\"{originator}\""), client.clone())
+                .refresh_if_new_etag("\"provider-default\"".to_string(), client.clone())
                 .await;
         }
         assert_eq!(actual, catalogs);

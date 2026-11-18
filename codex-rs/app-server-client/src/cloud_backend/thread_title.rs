@@ -12,7 +12,6 @@ use codex_http_client::RouteAwareClientPool;
 use codex_http_client::is_allowed_chatgpt_host;
 use codex_login::CodexAuth;
 use codex_login::default_client::add_originator_header;
-use codex_login::default_client::get_codex_user_agent;
 use codex_login::default_client::originator;
 use codex_model_provider::ACCOUNT_ROUTING_HEADER;
 use codex_model_provider::ChatgptBaseUrl;
@@ -80,7 +79,6 @@ impl CloudTitleClient {
             )
             .with_auth_provider(self.auth.clone())
             .map_err(|_| eyre!("could not configure Cloud title authentication"))?
-            .with_user_agent(get_codex_user_agent())
             .get_accounts_check()
             .await
             .map_err(|_| eyre!("Cloud title routing is unavailable"))?;
@@ -141,7 +139,6 @@ impl CloudTitleClient {
             if let Some(value) = routing_header {
                 provider.headers.insert(ACCOUNT_ROUTING_HEADER, value.parse()?);
             }
-            provider.headers.insert("user-agent", get_codex_user_agent().parse()?);
             add_originator_header(&mut provider.headers, &originator().value);
             let client = RouteAwareClientPool::with_chatgpt_cloudflare_cookies_without_redirects_or_request_logging(
                 self.factory.clone(),

@@ -42,10 +42,7 @@ async fn security_setup_fetch_with_default_features_uses_authenticated_codex_end
             "Bearer test-token",
         ))
         .and(wiremock::matchers::header("ChatGPT-Account-ID", "account"))
-        .and(wiremock::matchers::header(
-            "User-Agent",
-            codex_login::default_client::get_codex_user_agent(),
-        ))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
         .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({
             "notice": {
                 "title": "Keep using Daybreak mode", "description": "Set up security.",

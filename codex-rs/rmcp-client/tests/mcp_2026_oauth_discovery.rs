@@ -28,7 +28,6 @@ use wiremock::matchers::path;
 const RESOURCE_AUTHORIZATION: &str = "Bearer resource-only-secret";
 const RESOURCE_API_KEY: &str = "resource-api-key-secret";
 const RESOURCE_USER_AGENT: &str = "resource-only-user-agent";
-const MCP_USER_AGENT: &str = concat!("codex-mcp-client/", env!("CARGO_PKG_VERSION"));
 // This is a test safety ceiling, not rmcp's private redirect limit.
 const MAX_METADATA_REDIRECT_REQUESTS: u64 = 100;
 const REDIRECT_DISCOVERY_TEST_TIMEOUT: Duration = Duration::from_secs(5);
@@ -97,7 +96,7 @@ async fn assert_authorization_requests_exclude_resource_headers(
                 .headers
                 .get("user-agent")
                 .map(wiremock::http::HeaderValue::as_bytes),
-            Some(MCP_USER_AGENT.as_bytes())
+            None
         );
     }
     Ok(())

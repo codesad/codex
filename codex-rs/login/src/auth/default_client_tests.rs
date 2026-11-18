@@ -129,23 +129,17 @@ fn is_first_party_chat_originator_matches_known_values() {
 }
 
 #[test]
-fn add_originator_header_inserts_non_default_originator() {
-    let default_originator = originator();
-    let thread_originator = if default_originator.value == "chatgpt_cca" {
-        "codex_work_cca"
-    } else {
-        "chatgpt_cca"
-    };
-    let mut headers = HeaderMap::new();
-
-    add_originator_header(&mut headers, thread_originator);
-
-    assert_eq!(
-        headers
-            .get("originator")
-            .and_then(|value| value.to_str().ok()),
-        Some(thread_originator)
-    );
+fn add_originator_header_does_not_identify_the_thread() {
+    for value in [
+        DEFAULT_ORIGINATOR,
+        "codex-tui",
+        "chatgpt_cca",
+        "codex_work_cca",
+    ] {
+        let mut headers = HeaderMap::new();
+        add_originator_header(&mut headers, value);
+        assert!(headers.is_empty());
+    }
 }
 
 #[test]
@@ -177,7 +171,7 @@ fn add_originator_header_omits_invalid_originator() {
 }
 
 #[tokio::test]
-async fn test_create_client_sets_default_headers() {
+async fn test_create_client_omits_identification_and_preserves_residency() {
     skip_if_no_network!();
 
     set_default_client_residency_requirement(Some(ResidencyRequirement::Us));
@@ -212,18 +206,8 @@ async fn test_create_client_sets_default_headers() {
     assert!(!requests.is_empty());
     let headers = &requests[0].headers;
 
-    // originator header is set to the provided value
-    let originator_header = headers
-        .get("originator")
-        .expect("originator header missing");
-    assert_eq!(originator_header.to_str().unwrap(), originator().value);
-
-    // User-Agent matches the computed Codex UA for that originator
-    let expected_ua = get_codex_user_agent();
-    let ua_header = headers
-        .get("user-agent")
-        .expect("user-agent header missing");
-    assert_eq!(ua_header.to_str().unwrap(), expected_ua);
+    assert!(!headers.contains_key("originator"));
+    assert!(!headers.contains_key("user-agent"));
 
     let residency_header = headers
         .get(RESIDENCY_HEADER_NAME)

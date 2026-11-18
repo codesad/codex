@@ -44,6 +44,8 @@ async fn transcribe_audio_posts_multipart_file_and_returns_text() {
     assert_eq!(text, "Hello there.");
 
     let request = server.received_requests().await.unwrap().pop().unwrap();
+    assert!(!request.headers.contains_key("user-agent"));
+    assert!(!request.headers.contains_key("originator"));
     let boundary = request.headers[CONTENT_TYPE]
         .to_str()
         .unwrap()

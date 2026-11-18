@@ -5,7 +5,6 @@ use pretty_assertions::assert_eq;
 use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::ResponseTemplate;
-use wiremock::matchers::header_exists;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
 use wiremock::matchers::query_param;
@@ -16,8 +15,8 @@ async fn remote_plugin_list_routes_the_complete_query_url() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/backend-api/ps/plugins/list"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "plugins": [],
             "pagination": {"next_page_token": null},

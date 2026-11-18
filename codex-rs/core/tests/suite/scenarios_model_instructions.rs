@@ -3,48 +3,38 @@
 use super::*;
 use codex_models_manager::manager::RefreshStrategy;
 use codex_models_manager::model_info::model_info_from_slug;
-use codex_protocol::openai_models::ApplyPatchToolType;
 use codex_protocol::openai_models::ModelVisibility;
 use codex_protocol::openai_models::ModelsResponse;
 use core_test_support::responses;
 use pretty_assertions::assert_eq;
 
-/// Originator routing supplies the actual turn's instructions and tools without changing legacy callers.
+/// Thread origins no longer override the explicitly configured provider catalog.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn originator_catalogs_control_turn_instructions_and_tools() -> Result<()> {
+async fn thread_origins_preserve_provider_catalog_instructions_and_tools() -> Result<()> {
     skip_if_no_network!(Ok(()));
 
     let server = wiremock::MockServer::start().await;
-    for (originator, instructions, patch_tool) in [
-        ("provider-default", "Default catalog instructions.", None),
-        (
-            "codex_work_cca",
-            "Work catalog instructions.",
-            Some(ApplyPatchToolType::Freeform),
-        ),
-        ("chatgpt_cca", "Chat catalog instructions.", None),
-    ] {
-        let mut model = model_info_from_slug("gpt-5.5");
-        model.visibility = ModelVisibility::List;
-        model.use_responses_lite = false;
-        model.tool_mode = Some(ToolMode::Direct);
-        model.apply_patch_tool_type = patch_tool;
-        model
-            .model_messages
-            .get_or_insert_default()
-            .instructions_template = Some(instructions.into());
-        wiremock::Mock::given(wiremock::matchers::method("GET"))
-            .and(wiremock::matchers::path("/v1/models"))
-            .and(wiremock::matchers::header("originator", originator))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).set_body_json(ModelsResponse {
-                    models: vec![model],
-                }),
-            )
-            .expect(1)
-            .mount(&server)
-            .await;
-    }
+    let mut model = model_info_from_slug("gpt-5.5");
+    model.visibility = ModelVisibility::List;
+    model.use_responses_lite = false;
+    model.tool_mode = Some(ToolMode::Direct);
+    model.apply_patch_tool_type = None;
+    model
+        .model_messages
+        .get_or_insert_default()
+        .instructions_template = Some("Default catalog instructions.".into());
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path("/v1/models"))
+        .and(wiremock::matchers::header("originator", "provider-default"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(ModelsResponse {
+                models: vec![model],
+            }),
+        )
+        .expect(3)
+        .mount(&server)
+        .await;
     let mock = mount_sse_sequence(
         &server,
         (1..=5)
@@ -80,25 +70,14 @@ async fn originator_catalogs_control_turn_instructions_and_tools() -> Result<()>
     }
     let requests = mock.requests();
     assert_eq!(requests.len(), 5);
-    for (request, expected) in requests.iter().zip([
-        "Default catalog instructions.",
-        "Work catalog instructions.",
-        "Chat catalog instructions.",
-        "Default catalog instructions.",
-        "Work catalog instructions.",
-    ]) {
-        assert_eq!(request.instructions_text(), expected);
+    for request in &requests {
+        assert_eq!(request.instructions_text(), "Default catalog instructions.");
+        assert_eq!(
+            request.header("originator").as_deref(),
+            Some("provider-default")
+        );
+        assert_eq!(request.header("user-agent"), None);
     }
-    insta::assert_snapshot!(
-        "originator_catalog_instructions_and_tools",
-        context_snapshot::format_request_history_snapshot(
-            "Default, Work, Chat, unsupported, and repeated Work threads use their own catalog instructions and tools. Unsupported callers preserve the default request; repeated Work reuses its catalog.",
-            &requests,
-            &ContextSnapshotOptions::default()
-                .rewrite_known_segments()
-                .include_request_settings(),
-        )
-    );
     let tools = requests
         .iter()
         .map(|request| {
@@ -108,8 +87,11 @@ async fn originator_catalogs_control_turn_instructions_and_tools() -> Result<()>
                 .clone()
         })
         .collect::<Vec<_>>();
-    assert_eq!(tools[0], tools[3]);
-    assert_eq!(tools[1], tools[4]);
+    assert!(
+        tools
+            .iter()
+            .all(|tools_for_turn| tools_for_turn == &tools[0])
+    );
     assert_eq!(
         tools
             .iter()
@@ -117,7 +99,7 @@ async fn originator_catalogs_control_turn_instructions_and_tools() -> Result<()>
                 .iter()
                 .any(|tool| tool["name"] == "apply_patch"))
             .collect::<Vec<_>>(),
-        vec![false, true, false, false, true],
+        vec![false; 5],
     );
     server.verify().await;
     Ok(())

@@ -2436,7 +2436,7 @@ async fn start_thread_seeds_extension_data_for_mcp_and_lifecycle_contributors() 
         codex_apps_headers
             .expect("Codex Apps headers should be configured")
             .get("originator"),
-        Some(&"codex_work_desktop".to_string())
+        None
     );
     // A supplied plugin denial or unavailable environment must also restrict host projections.
     let disabled_plugins = ["plugin-selected-a".to_string()];
@@ -3548,9 +3548,9 @@ async fn new_uses_active_provider_for_model_refresh(with_cache: bool) {
         model.supports_search_tool = true;
         model.tool_mode = Some(codex_protocol::openai_models::ToolMode::CodeModeOnly);
         model.use_responses_lite = true;
-        wiremock::Mock::given(wiremock::matchers::method("GET"))
+        let _catalog_guard = wiremock::Mock::given(wiremock::matchers::method("GET"))
             .and(wiremock::matchers::path("/models"))
-            .and(wiremock::matchers::header("originator", originator))
+            .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
             .and(wiremock::matchers::header(
                 "X-OpenAI-Product-Sku",
                 "test-product",
@@ -3561,7 +3561,7 @@ async fn new_uses_active_provider_for_model_refresh(with_cache: bool) {
                 }),
             )
             .expect(if with_cache { 1..=1 } else { 1..=2 })
-            .mount(&server)
+            .mount_as_scoped(&server)
             .await;
         let started = manager
             .start_thread(StartThreadOptions {

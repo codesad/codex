@@ -1,4 +1,4 @@
-//! Default Codex HTTP client: shared `User-Agent`, `originator`, optional residency header, and
+//! Default Codex HTTP client: optional residency header and
 //! HTTP client and transport construction.
 //!
 //! Use [`crate::default_client`] or [`codex_login::default_client`] from other crates in this
@@ -16,7 +16,6 @@ use codex_http_client::RouteAwareClientPool;
 use codex_terminal_detection::user_agent;
 use http::HeaderMap;
 use http::HeaderValue;
-use http::header::USER_AGENT;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::RwLock;
@@ -118,25 +117,9 @@ pub fn originator() -> Originator {
     get_originator_value(/*provided*/ None)
 }
 
-/// Adds a valid, non-default thread originator override to request headers.
-///
-/// The default client already supplies the process originator. Thread-scoped callers should use
-/// this helper to override that value only when the thread originator differs.
-pub fn add_originator_header(headers: &mut HeaderMap, originator_value: &str) {
-    let default_originator = originator();
-    if originator_value == default_originator.value.as_str() {
-        return;
-    }
-
-    match HeaderValue::from_str(originator_value) {
-        Ok(header_value) => {
-            headers.insert("originator", header_value);
-        }
-        Err(err) => {
-            tracing::warn!("ignoring invalid thread originator header value: {err}");
-        }
-    }
-}
+/// Retains the shared API without adding automatic client identification headers.
+/// Explicit provider headers are left untouched.
+pub fn add_originator_header(_headers: &mut HeaderMap, _originator_value: &str) {}
 
 pub fn is_first_party_originator(originator_value: &str) -> bool {
     originator_value == DEFAULT_ORIGINATOR
@@ -210,7 +193,7 @@ fn sanitize_user_agent(candidate: String, fallback: &str) -> String {
     }
 }
 
-/// Create an HTTP client with default `originator` and `User-Agent` headers set.
+/// Create an HTTP client without automatic `originator` or `User-Agent` headers.
 ///
 /// This supported default path preserves the transport's existing proxy behavior and does not opt into
 /// Codex's route-aware system/PAC resolution.
@@ -492,10 +475,6 @@ pub(crate) fn create_default_auth_client(
 
 pub fn default_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
-    headers.insert("originator", originator().header_value);
-    if let Ok(user_agent) = HeaderValue::from_str(&get_codex_user_agent()) {
-        headers.insert(USER_AGENT, user_agent);
-    }
     if let Some(requirement) = read_default_client_residency_requirement() {
         let value = match requirement {
             ResidencyRequirement::Us => HeaderValue::from_static("us"),

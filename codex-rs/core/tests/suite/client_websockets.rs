@@ -294,6 +294,7 @@ async fn responses_websocket_streams_request() {
     assert_eq!(body["stream"], serde_json::Value::Bool(true));
     assert_eq!(body["input"].as_array().map(Vec::len), Some(1));
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     assert_eq!(
         handshake.header(OPENAI_BETA_HEADER),
         Some(WS_V2_BETA_HEADER_VALUE.to_string())
@@ -314,10 +315,7 @@ async fn responses_websocket_streams_request() {
         handshake.header("thread-id"),
         Some(harness.thread_id.to_string())
     );
-    assert_eq!(
-        handshake.header(USER_AGENT_HEADER),
-        Some(codex_login::default_client::get_codex_user_agent())
-    );
+    assert_eq!(handshake.header(USER_AGENT_HEADER), None);
     assert_eq!(
         body["client_metadata"]["x-codex-installation-id"].as_str(),
         Some(TEST_INSTALLATION_ID)
@@ -360,6 +358,7 @@ async fn responses_websocket_omits_routing_hint_for_provider_with_own_credential
     stream_until_complete(&mut client_session, &harness, &prompt).await;
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     assert_eq!(
         handshake.header("authorization"),
         Some("Bearer provider-specific-token".to_string())
@@ -517,10 +516,7 @@ async fn responses_websocket_reuses_connection_with_per_turn_trace_payloads() {
     };
 
     assert_eq!(server.handshakes().len(), 1);
-    assert_eq!(
-        server.single_handshake().header(USER_AGENT_HEADER),
-        Some(codex_login::default_client::get_codex_user_agent())
-    );
+    assert_eq!(server.single_handshake().header(USER_AGENT_HEADER), None);
     let connection = server.single_connection();
     assert_eq!(connection.len(), 2);
 
@@ -574,10 +570,8 @@ async fn responses_websocket_preconnect_reuses_connection_without_replacing_turn
         .expect("websocket preconnect failed");
     assert!(server.single_connection().is_empty());
     let handshake = server.single_handshake();
-    assert_eq!(
-        handshake.header(USER_AGENT_HEADER),
-        Some(codex_login::default_client::get_codex_user_agent())
-    );
+    assert_eq!(handshake.header("originator"), None);
+    assert_eq!(handshake.header(USER_AGENT_HEADER), None);
     assert_eq!(
         handshake.header("x-codex-window-id"),
         Some(TEST_WINDOW_ID.to_string())
@@ -666,10 +660,7 @@ async fn responses_websocket_resume_prewarm_reuses_and_repairs_connection() -> a
 
     assert_eq!(instructions.load_count(), instruction_loads + 1);
     assert_eq!(server.handshakes().len(), 1);
-    assert_eq!(
-        server.single_handshake().header(USER_AGENT_HEADER),
-        Some(codex_login::default_client::get_codex_user_agent())
-    );
+    assert_eq!(server.single_handshake().header(USER_AGENT_HEADER), None);
     assert_eq!(
         server.single_handshake().header("x-codex-window-id"),
         Some(format!("{}:0", test.session_configured.thread_id))
@@ -800,10 +791,8 @@ async fn responses_websocket_request_prewarm_reuses_connection() {
 
     assert_eq!(server.handshakes().len(), 1);
     let handshake = server.single_handshake();
-    assert_eq!(
-        handshake.header(USER_AGENT_HEADER),
-        Some(codex_login::default_client::get_codex_user_agent())
-    );
+    assert_eq!(handshake.header("originator"), None);
+    assert_eq!(handshake.header(USER_AGENT_HEADER), None);
     assert_eq!(
         handshake.header(OPENAI_BETA_HEADER),
         Some(WS_V2_BETA_HEADER_VALUE.to_string())
@@ -1379,6 +1368,7 @@ async fn responses_websocket_prewarm_reuses_advisory_model_and_tier_routing_hint
         .await
         .expect("eager handshake should connect");
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     assert_eq!(
         handshake.header(X_CODEX_ROUTING_HINT_HEADER),
         Some(match preconnect_tier {
@@ -1458,6 +1448,7 @@ async fn responses_websocket_v2_requests_use_v2_when_provider_supports_websocket
     );
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     let openai_beta_header = handshake
         .header(OPENAI_BETA_HEADER)
         .expect("missing OpenAI-Beta header");
@@ -1607,6 +1598,7 @@ async fn responses_websocket_v2_wins_when_both_features_enabled() {
     );
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     let openai_beta_header = handshake
         .header(OPENAI_BETA_HEADER)
         .expect("missing OpenAI-Beta header");
@@ -1682,6 +1674,7 @@ async fn responses_websocket_includes_timing_metrics_header_when_runtime_metrics
     tokio::time::sleep(Duration::from_millis(10)).await;
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     assert_eq!(
         handshake.header(X_RESPONSESAPI_INCLUDE_TIMING_METRICS_HEADER),
         Some("true".to_string())
@@ -1719,6 +1712,7 @@ async fn responses_websocket_omits_timing_metrics_header_when_runtime_metrics_di
     stream_until_complete(&mut client_session, &harness, &prompt).await;
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     assert_eq!(
         handshake.header(X_RESPONSESAPI_INCLUDE_TIMING_METRICS_HEADER),
         None
@@ -2069,13 +2063,7 @@ async fn responses_websocket_connection_limit_error_reconnects_and_completes() {
         .iter()
         .map(|handshake| handshake.header(USER_AGENT_HEADER))
         .collect();
-    assert_eq!(
-        handshake_user_agents,
-        vec![
-            Some(codex_login::default_client::get_codex_user_agent()),
-            Some(codex_login::default_client::get_codex_user_agent()),
-        ]
-    );
+    assert_eq!(handshake_user_agents, vec![None, None,]);
 
     server.shutdown().await;
 }
@@ -2803,6 +2791,7 @@ async fn responses_websocket_v2_sets_openai_beta_header() {
     stream_until_complete(&mut session, &harness, &prompt).await;
 
     let handshake = server.single_handshake();
+    assert_eq!(handshake.header("originator"), None);
     let openai_beta_header = handshake
         .header(OPENAI_BETA_HEADER)
         .expect("missing OpenAI-Beta header");

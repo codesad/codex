@@ -64,7 +64,6 @@ async fn init_backend(
 
     set_user_agent_suffix(user_agent_suffix);
 
-    let ua = get_codex_user_agent();
     let (auth_manager, http_client_factory, config) =
         util::load_auth_manager(Some(base_url.clone()), config_overrides).await?;
     let auth = match auth_manager.as_ref() {
@@ -167,10 +166,7 @@ async fn init_backend(
         /*headers*/ &Default::default(),
     )
     .await?;
-    let http = codex_cloud_tasks_client::HttpClient::from_backend(
-        base_url.clone(),
-        backend.with_user_agent(ua),
-    );
+    let http = codex_cloud_tasks_client::HttpClient::from_backend(base_url.clone(), backend);
     if let Some(acc) = auth.get_account_id() {
         append_error_log(format!("auth: set ChatGPT-Account-Id header: {acc}"));
     }

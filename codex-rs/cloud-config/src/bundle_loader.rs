@@ -227,7 +227,6 @@ pub async fn managed_config_bundle_loader_for_auth(
         base_url,
         config.auth_route_config.http_client_factory().clone(),
     )
-    .with_user_agent(codex_login::default_client::get_codex_user_agent())
     .with_bearer_token(auth.get_token()?)
     .map_err(std::io::Error::other)?
     .with_chatgpt_account_id(

@@ -419,7 +419,7 @@ async fn host_model_info_uses_the_thread_catalog(source: SessionSource) -> Resul
     Mock::given(method("GET"))
         .and(path("/provider/models"))
         .and(header("authorization", "Bearer catalog-test"))
-        .and(header("originator", "codex_work_cca"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(ResponseTemplate::new(200).set_body_json(ModelsResponse {
             models: vec![model, next_model],
         }))

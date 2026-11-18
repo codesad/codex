@@ -114,17 +114,7 @@ pub async fn load_auth_manager(
 
 /// Non-authentication headers shared by environment requests. The client resolves auth per GET.
 pub fn build_chatgpt_headers() -> HeaderMap {
-    use http::header::HeaderValue;
-    use http::header::USER_AGENT;
-
-    set_user_agent_suffix("codex_cloud_tasks_tui");
-    let ua = codex_login::default_client::get_codex_user_agent();
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        USER_AGENT,
-        HeaderValue::from_str(&ua).unwrap_or(HeaderValue::from_static("codex-cli")),
-    );
-    headers
+    HeaderMap::new()
 }
 
 /// Construct a browser-friendly task URL for the given backend base URL.

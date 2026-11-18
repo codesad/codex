@@ -72,16 +72,7 @@ impl AccountRequestProcessor {
                 .ok()?;
             headers.insert("chatgpt-account-id", account_id.parse().ok()?);
             resolved.validate_headers(&headers).ok()?;
-            let response = client
-                .get(&url)
-                .headers(headers)
-                .header(
-                    "User-Agent",
-                    codex_login::default_client::get_codex_user_agent(),
-                )
-                .send()
-                .await
-                .ok()?;
+            let response = client.get(&url).headers(headers).send().await.ok()?;
             if !response.status().is_success() {
                 return None;
             }

@@ -19,7 +19,6 @@ use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::ResponseTemplate;
 use wiremock::matchers::header;
-use wiremock::matchers::header_exists;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
 use wiremock::matchers::query_param;
@@ -78,8 +77,8 @@ async fn search_remote_plugins_forwards_parameters_and_converts_results() {
         .and(header("authorization", "Bearer Access Token"))
         .and(header("chatgpt-account-id", "account_id"))
         .and(header("oai-product-sku", "codex"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "plugins": [remote_plugin],
             "pagination": {"next_page_token": "later page/+"},

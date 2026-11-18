@@ -296,15 +296,9 @@ impl OpenAiModelsEndpoint {
 impl ModelsEndpointClient for OpenAiModelsEndpoint {
     fn for_originator(
         &self,
-        originator: ModelCatalogOriginator,
+        _originator: ModelCatalogOriginator,
     ) -> Option<Arc<dyn ModelsEndpointClient>> {
-        let mut provider_info = self.provider_info.clone();
-        let headers = provider_info.http_headers.get_or_insert_default();
-        headers.retain(|name, _| !name.eq_ignore_ascii_case("originator"));
-        headers.insert("originator".to_string(), originator.as_str().into());
-        if let Some(headers) = &mut provider_info.env_http_headers {
-            headers.retain(|name, _| !name.eq_ignore_ascii_case("originator"));
-        }
+        let provider_info = self.provider_info.clone();
         Some(Arc::new(Self {
             provider_info,
             auth_manager: self.auth_manager.clone(),

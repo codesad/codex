@@ -20,7 +20,6 @@ use codex_http_client::RequestBuilder;
 use codex_http_client::RouteAwareClientPool;
 use codex_http_client::RouteAwareRequestError;
 use codex_login::CodexAuth;
-use codex_login::default_client::get_codex_user_agent;
 use codex_model_provider::ClientAuth;
 use codex_protocol::account::PlanType as AccountPlanType;
 use codex_protocol::protocol::CreditsSnapshot;
@@ -275,8 +274,7 @@ impl Client {
         auth: &CodexAuth,
         http_client_factory: HttpClientFactory,
     ) -> Self {
-        let mut client =
-            Self::new(base_url, http_client_factory).with_user_agent(get_codex_user_agent());
+        let mut client = Self::new(base_url, http_client_factory);
         client.auth = ClientAuth::new(codex_model_provider::auth_provider_from_auth(auth));
         client
     }
@@ -335,7 +333,7 @@ impl Client {
             ClientAuth::for_auth(auth, runtime, http_client_factory, headers).await?;
         let mut client = new_client(base_url, http_client_factory);
         client.auth = auth;
-        Ok(client.with_user_agent(get_codex_user_agent()))
+        Ok(client)
     }
 
     /// Configure provider auth, returning an error for a runtime-bound client.
@@ -379,8 +377,6 @@ impl Client {
     async fn headers_with(&self, mut h: HeaderMap) -> Result<HeaderMap, RequestError> {
         if let Some(ua) = &self.user_agent {
             h.insert(USER_AGENT, ua.clone());
-        } else {
-            h.insert(USER_AGENT, HeaderValue::from_static("codex-cli"));
         }
 
         let selected = self.auth.resolve(&h).await?;

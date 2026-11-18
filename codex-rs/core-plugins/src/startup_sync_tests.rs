@@ -16,7 +16,6 @@ use tempfile::tempdir;
 use wiremock::Mock;
 use wiremock::MockServer;
 use wiremock::ResponseTemplate;
-use wiremock::matchers::header_exists;
 use wiremock::matchers::method;
 use wiremock::matchers::path;
 use zip::ZipWriter;
@@ -521,15 +520,15 @@ fn run_git(repo: &Path, args: &[&str]) -> std::process::Output {
 async fn mount_github_repo_and_ref(server: &MockServer, sha: &str) {
     Mock::given(method("GET"))
         .and(path("/repos/openai/plugins"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"default_branch":"main"}"#))
         .mount(server)
         .await;
     Mock::given(method("GET"))
         .and(path("/repos/openai/plugins/git/ref/heads/main"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_string(format!(r#"{{"object":{{"sha":"{sha}"}}}}"#)),
@@ -541,8 +540,8 @@ async fn mount_github_repo_and_ref(server: &MockServer, sha: &str) {
 async fn mount_github_zipball(server: &MockServer, sha: &str, bytes: Vec<u8>) {
     Mock::given(method("GET"))
         .and(path(format!("/repos/openai/plugins/zipball/{sha}")))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/zip")
@@ -556,8 +555,8 @@ async fn mount_export_archive(server: &MockServer, bytes: Vec<u8>) -> String {
     let export_api_url = format!("{}/backend-api/plugins/export/curated", server.uri());
     Mock::given(method("GET"))
         .and(path("/backend-api/plugins/export/curated"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(ResponseTemplate::new(200).set_body_string(format!(
             r#"{{"download_url":"{}/files/curated-plugins.zip"}}"#,
             server.uri()
@@ -566,8 +565,8 @@ async fn mount_export_archive(server: &MockServer, bytes: Vec<u8>) -> String {
         .await;
     Mock::given(method("GET"))
         .and(path("/files/curated-plugins.zip"))
-        .and(header_exists("user-agent"))
-        .and(header_exists("originator"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("user-agent"))
+        .and(|request: &wiremock::Request| !request.headers.contains_key("originator"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/zip")

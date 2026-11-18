@@ -701,10 +701,7 @@ async fn preconnected_sampler_reuses_authenticated_websocket_for_classifications
         Some("true".to_owned())
     );
     assert_eq!(handshake.header("session-id"), Some("session-1".to_owned()));
-    assert_eq!(
-        handshake.header("originator"),
-        Some("guardian-v2-test".to_owned())
-    );
+    assert_eq!(handshake.header("originator"), None);
 
     let first = sampler
         .sample(LunaSamplingRequest {
